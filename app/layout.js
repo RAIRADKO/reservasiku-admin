@@ -1,5 +1,5 @@
 import "./globals.css";
-import Navbar from "./components/Navbar";
+import Sidebar from "./components/Sidebar";
 
 export const metadata = {
   title: "Admin Reservasi",
@@ -8,10 +8,16 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
-      <body>
-        <Navbar />
-        <main className="container mx-auto p-4">{children}</main>
+    <html lang="id">
+      <body className="bg-gray-100">
+        <div className="flex h-screen overflow-hidden">
+          <Sidebar />
+          <main className="flex-1 overflow-y-auto">
+            <div className="p-6 lg:p-8">
+              {children}
+            </div>
+          </main>
+        </div>
       </body>
     </html>
   );
