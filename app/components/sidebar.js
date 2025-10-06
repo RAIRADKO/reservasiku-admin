@@ -1,11 +1,14 @@
 'use client'
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Users, Calendar, Grid3x3, LayoutDashboard, Menu, X } from "lucide-react";
+import { useRouter, usePathname } from "next/navigation";
+import { Users, Calendar, Grid3x3, LayoutDashboard, Menu, X, LogOut } from "lucide-react";
 import { useState } from "react";
+import { signOut } from "firebase/auth";
+import { auth } from "../lib/firebase";
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
 
   const menuItems = [
@@ -15,12 +18,23 @@ export default function Sidebar() {
     { href: "/reservations", icon: Calendar, label: "Reservasi" },
   ];
 
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      router.push('/login');
+    } catch (error) {
+      console.error("Error signing out: ", error);
+      alert('Gagal logout!');
+    }
+  };
+
   return (
     <>
       {/* Mobile Menu Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-gray-800 text-white rounded-lg"
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-gray-800 text-white rounded-lg shadow-lg"
+        aria-label="Toggle menu"
       >
         {isOpen ? <X size={24} /> : <Menu size={24} />}
       </button>
@@ -80,7 +94,7 @@ export default function Sidebar() {
 
           {/* Footer */}
           <div className="p-4 border-t border-gray-700">
-            <div className="flex items-center gap-3 px-4 py-3">
+            <div className="flex items-center gap-3 px-4 py-3 mb-2">
               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
                 <span className="text-sm font-bold">A</span>
               </div>
@@ -89,6 +103,13 @@ export default function Sidebar() {
                 <p className="text-xs text-gray-400">admin@reservasi.com</p>
               </div>
             </div>
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-gray-300 hover:bg-red-600 hover:text-white transition-all duration-200"
+            >
+              <LogOut size={20} />
+              <span className="font-medium">Logout</span>
+            </button>
           </div>
         </div>
       </aside>

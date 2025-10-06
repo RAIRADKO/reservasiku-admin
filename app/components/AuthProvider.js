@@ -13,48 +13,47 @@ export default function AuthProvider({ children }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    // Listener ini akan memeriksa perubahan status login
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
       setLoading(false);
     });
 
-    // Membersihkan listener saat komponen tidak lagi digunakan
     return () => unsubscribe();
   }, []);
 
   useEffect(() => {
     if (loading) return;
 
-    // Jika pengguna TIDAK login dan TIDAK berada di halaman login,
-    // alihkan (redirect) ke halaman login.
+    // Jika tidak login dan bukan di halaman login, redirect ke login
     if (!user && pathname !== '/login') {
-      router.push('/login');
+      router.replace('/login');
     }
 
-    // Jika pengguna SUDAH login dan mencoba mengakses halaman login,
-    // alihkan ke halaman utama (dashboard).
+    // Jika sudah login dan di halaman login, redirect ke dashboard
     if (user && pathname === '/login') {
-      router.push('/');
+      router.replace('/');
     }
   }, [loading, user, pathname, router]);
 
-  // Tampilkan layar loading saat status autentikasi sedang diperiksa
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        Loading...
+      <div className="flex justify-center items-center h-screen bg-gray-900">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-400">Loading...</p>
+        </div>
       </div>
     );
   }
 
-  // Izinkan akses jika:
-  // 1. Pengguna sudah login (dan tidak di halaman login)
-  // 2. Pengguna belum login TAPI sedang di halaman login
-  if ((user && pathname !== '/login') || (!user && pathname === '/login')) {
+  // Render children hanya jika kondisi sesuai
+  if (user && pathname !== '/login') {
     return <>{children}</>;
   }
 
-  // Jangan render apa-apa selama proses redirect
+  if (!user && pathname === '/login') {
+    return <>{children}</>;
+  }
+
   return null;
 }
