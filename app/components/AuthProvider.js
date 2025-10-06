@@ -3,18 +3,45 @@
 
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '../lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, db } from '../lib/firebase';
 import { useRouter, usePathname } from 'next/navigation';
 
 export default function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
+  const [userRole, setUserRole] = useState(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        // Cek role user dari Firestore
+        try {
+          const userDocRef = doc(db, 'users', firebaseUser.uid);
+          const userDoc = await getDoc(userDocRef);
+          
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            setUser(firebaseUser);
+            setUserRole(userData.role || 'user'); // Default role adalah 'user'
+          } else {
+            // Jika user tidak ada di Firestore, logout
+            await auth.signOut();
+            setUser(null);
+            setUserRole(null);
+          }
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+          await auth.signOut();
+          setUser(null);
+          setUserRole(null);
+        }
+      } else {
+        setUser(null);
+        setUserRole(null);
+      }
       setLoading(false);
     });
 
@@ -27,13 +54,21 @@ export default function AuthProvider({ children }) {
     // Jika tidak login dan bukan di halaman login, redirect ke login
     if (!user && pathname !== '/login') {
       router.replace('/login');
+      return;
     }
 
     // Jika sudah login dan di halaman login, redirect ke dashboard
     if (user && pathname === '/login') {
       router.replace('/');
+      return;
     }
-  }, [loading, user, pathname, router]);
+
+    // Jika sudah login tapi bukan admin, redirect ke halaman unauthorized
+    if (user && userRole !== 'admin' && pathname !== '/login' && pathname !== '/unauthorized') {
+      router.replace('/unauthorized');
+      return;
+    }
+  }, [loading, user, userRole, pathname, router]);
 
   if (loading) {
     return (
@@ -47,11 +82,15 @@ export default function AuthProvider({ children }) {
   }
 
   // Render children hanya jika kondisi sesuai
-  if (user && pathname !== '/login') {
+  if (user && userRole === 'admin' && pathname !== '/login') {
     return <>{children}</>;
   }
 
   if (!user && pathname === '/login') {
+    return <>{children}</>;
+  }
+
+  if (user && userRole !== 'admin' && pathname === '/unauthorized') {
     return <>{children}</>;
   }
 
