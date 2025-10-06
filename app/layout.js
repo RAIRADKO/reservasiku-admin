@@ -1,5 +1,6 @@
+// app/layout.js
 import "./globals.css";
-import Sidebar from "./components/sidebar";
+import AuthProvider from "./components/AuthProvider"; // <-- Impor AuthProvider
 
 export const metadata = {
   title: "Admin Reservasi",
@@ -9,11 +10,10 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en" className="dark">
-      <body className="flex bg-gray-100 dark:bg-gray-900">
-        <Sidebar />
-        <main className="flex-1 p-6 lg:p-10">
+      <body>
+        <AuthProvider>
           {children}
-        </main>
+        </AuthProvider>
       </body>
     </html>
   );

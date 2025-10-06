@@ -2,20 +2,23 @@
 'use client'
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { signInWithEmailAndPassword } from 'firebase/auth'; // <-- Tambahkan ini
+import { auth } from '../lib/firebase'; // <-- Tambahkan ini
 
 export default function LoginPage() {
+  const [email, setEmail] = useState(''); // <-- Ganti dari password menjadi email
   const [password, setPassword] = useState('');
   const router = useRouter();
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => { // <-- Jadikan fungsi ini async
     e.preventDefault();
-    // Ganti 'passwordrahasia' dengan password admin Anda
-    if (password === 'passwordrahasia') {
-      // Set cookie jika password benar
-      document.cookie = "admin_session=true; path=/; max-age=86400"; // Cookie berlaku 1 hari
+    try {
+      // Lakukan login dengan Firebase
+      await signInWithEmailAndPassword(auth, email, password);
       router.push('/');
-    } else {
-      alert('Password salah!');
+    } catch (error) {
+      console.error("Error signing in: ", error);
+      alert('Email atau Password salah!');
     }
   };
 
@@ -23,6 +26,13 @@ export default function LoginPage() {
     <div className="flex items-center justify-center h-screen bg-gray-100">
       <form onSubmit={handleLogin} className="bg-white p-8 rounded-lg shadow-md w-96">
         <h1 className="text-2xl font-bold mb-6">Admin Login</h1>
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Masukkan email"
+          className="w-full p-3 border rounded-lg mb-4"
+        />
         <input
           type="password"
           value={password}
