@@ -3,46 +3,33 @@
 
 import { useState, useEffect } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../lib/firebase';
+import { auth } from '../lib/firebase';
 import { useRouter, usePathname } from 'next/navigation';
 
 export default function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [userRole, setUserRole] = useState(null);
+  const [isAdmin, setIsAdmin] = useState(false); // Ganti userRole menjadi isAdmin
   const [loading, setLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setLoading(true);
       if (firebaseUser) {
-        // Cek role user dari Firestore
-        try {
-          const userDocRef = doc(db, 'users', firebaseUser.uid);
-          const userDoc = await getDoc(userDocRef);
-          
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            setUser(firebaseUser);
-            setUserRole(userData.role || 'user'); // Default role adalah 'user'
-          } else {
-            // Jika user tidak ada di Firestore, logout
-            await auth.signOut();
-            setUser(null);
-            setUserRole(null);
-          }
-        } catch (error) {
-          console.error('Error fetching user data:', error);
-          await auth.signOut();
-          setUser(null);
-          setUserRole(null);
-        }
+        setUser(firebaseUser);
+        // Paksa refresh token untuk mendapatkan custom claims terbaru
+        firebaseUser.getIdTokenResult(true).then((idTokenResult) => {
+          // Cek custom claim 'admin'
+          const userIsAdmin = !!idTokenResult.claims.admin;
+          setIsAdmin(userIsAdmin);
+          setLoading(false);
+        });
       } else {
         setUser(null);
-        setUserRole(null);
+        setIsAdmin(false);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => unsubscribe();
@@ -51,24 +38,28 @@ export default function AuthProvider({ children }) {
   useEffect(() => {
     if (loading) return;
 
-    // Jika tidak login dan bukan di halaman login, redirect ke login
-    if (!user && pathname !== '/login') {
+    const isAuthPage = pathname === '/login';
+    const isUnauthorizedPage = pathname === '/unauthorized';
+
+    // Jika belum login dan tidak di halaman login, redirect ke login
+    if (!user && !isAuthPage) {
       router.replace('/login');
       return;
     }
 
-    // Jika sudah login dan di halaman login, redirect ke dashboard
-    if (user && pathname === '/login') {
+    // Jika sudah login dan berada di halaman login, redirect ke dashboard
+    if (user && isAuthPage) {
       router.replace('/');
       return;
     }
 
-    // Jika sudah login tapi bukan admin, redirect ke halaman unauthorized
-    if (user && userRole !== 'admin' && pathname !== '/login' && pathname !== '/unauthorized') {
+    // Jika user sudah login TAPI BUKAN admin, dan mencoba akses halaman terproteksi
+    if (user && !isAdmin && !isAuthPage && !isUnauthorizedPage) {
       router.replace('/unauthorized');
       return;
     }
-  }, [loading, user, userRole, pathname, router]);
+
+  }, [loading, user, isAdmin, pathname, router]);
 
   if (loading) {
     return (
@@ -81,18 +72,25 @@ export default function AuthProvider({ children }) {
     );
   }
 
-  // Render children hanya jika kondisi sesuai
-  if (user && userRole === 'admin' && pathname !== '/login') {
+  // Kondisi render anak
+  const isAuthPage = pathname === '/login';
+  const isUnauthorizedPage = pathname === '/unauthorized';
+
+  // Jika user adalah admin dan tidak di halaman login
+  if (user && isAdmin && !isAuthPage) {
     return <>{children}</>;
   }
 
-  if (!user && pathname === '/login') {
+  // Jika belum login dan berada di halaman login
+  if (!user && isAuthPage) {
     return <>{children}</>;
   }
 
-  if (user && userRole !== 'admin' && pathname === '/unauthorized') {
+  // Jika user bukan admin dan berada di halaman unauthorized
+  if (user && !isAdmin && isUnauthorizedPage) {
     return <>{children}</>;
   }
-
-  return null;
+  
+  // Jangan render apapun jika kondisi tidak terpenuhi (mencegah flash content)
+  return null; 
 }

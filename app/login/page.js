@@ -3,8 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { auth, db } from '../lib/firebase';
+import { auth } from '../lib/firebase';
 import { LogIn, Mail, Lock, AlertCircle } from 'lucide-react';
 
 export default function LoginPage() {
@@ -20,37 +19,18 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // Login dengan Firebase Auth
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
+      // Cukup login dengan Firebase Auth.
+      // AuthProvider akan secara otomatis menangani pengecekan role dan redirect.
+      await signInWithEmailAndPassword(auth, email, password);
 
-      // Cek role user dari Firestore
-      const userDocRef = doc(db, 'users', user.uid);
-      const userDoc = await getDoc(userDocRef);
-
-      if (!userDoc.exists()) {
-        setError('Data pengguna tidak ditemukan di database.');
-        await auth.signOut();
-        setLoading(false);
-        return;
-      }
-
-      const userData = userDoc.data();
-
-      // Cek apakah user adalah admin
-      if (userData.role !== 'admin') {
-        setError('Anda tidak memiliki akses sebagai admin.');
-        await auth.signOut();
-        setLoading(false);
-        return;
-      }
-
-      // Jika admin, redirect ke dashboard
+      // Setelah login berhasil, AuthProvider akan mengambil alih.
+      // Redirect ini berfungsi sebagai fallback jika proses di AuthProvider lambat.
       router.push('/');
+
     } catch (error) {
       console.error('Error signing in:', error);
       
-      // Handle berbagai error Firebase
+      // Handle berbagai kemungkinan error dari Firebase Auth
       switch (error.code) {
         case 'auth/invalid-email':
           setError('Format email tidak valid.');
@@ -59,19 +39,15 @@ export default function LoginPage() {
           setError('Akun ini telah dinonaktifkan.');
           break;
         case 'auth/user-not-found':
-          setError('Email tidak terdaftar.');
-          break;
         case 'auth/wrong-password':
-          setError('Password salah.');
-          break;
         case 'auth/invalid-credential':
-          setError('Email atau password salah.');
+          setError('Email atau password yang Anda masukkan salah.');
           break;
         case 'auth/too-many-requests':
-          setError('Terlalu banyak percobaan login. Coba lagi nanti.');
+          setError('Terlalu banyak percobaan login. Silakan coba lagi nanti.');
           break;
         default:
-          setError('Terjadi kesalahan. Silakan coba lagi.');
+          setError('Terjadi kesalahan saat login. Silakan coba lagi.');
       }
       setLoading(false);
     }
